@@ -17,7 +17,7 @@ n_embed = 384
 n_head = 4
 dropout = 0.2
 
-class BigramLanguageModel(nn.Module):
+class GPTLanguageModel(nn.Module):
     """ 
         Implements a GPT language model. Predicts the next character in a text.
         Very naieve implementation. First try.
