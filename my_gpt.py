@@ -1,4 +1,10 @@
-""" Baby's First Large Language Model """
+""" 
+    Baby's First Large Language Model 
+    From: https://www.youtube.com/watch?v=UU1WVnMk4E8
+    Note that tutorial became increasingly incoherent toward the end
+         I reproduce the code here in the hope of understanding it by 
+         trying to make it work.
+"""
 import sys
 from typing import Tuple, Callable
 from torchtyping import TensorType
@@ -6,17 +12,21 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-BLOCK_SIZE = 8
-BATCH_SIZE = 4
+BLOCK_SIZE = 64
+BATCH_SIZE = 128
+N_LAYER = 4
 MAX_ITERS = 1000
 EMBEDDING_DIM = 100
 SPLIT_SIZE = 0.8
-LEARNING_RATE = .1
+LEARNING_RATE = 3e-3
 EVAL_ITER = 100
 n_embed = 384
 n_head = 4
 dropout = 0.2
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+import my_gpt
 class GPTLanguageModel(nn.Module):
     """ 
         Implements a GPT language model. Predicts the next character in a text.
@@ -27,10 +37,10 @@ class GPTLanguageModel(nn.Module):
         """ Initialize method. vocab_size is the number of distinct characters in the text """
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
-        self.position_embedding_table = nn.Embedding(block_size, n_embed)
+        self.position_embedding_table = nn.Embedding(BLOCK_SIZE, n_embed)
         self.blocks = nn.Sequential(*[Block(n_embed, n_head=n_head) for _ in range(N_LAYER)])
         self.ln_f = nn.LayerNorm(n_embed)
-        self.lm_head = nn.Linear(n_emed, vocab_size)
+        self.lm_head = nn.Linear(n_embed, vocab_size)
 
         self.apply(self._init_weights)
 
@@ -45,13 +55,13 @@ class GPTLanguageModel(nn.Module):
     def forward(self, index: int, targets: TensorType = None):
         """ mandatory implementation of the forward method """
         # idx and targets are both (B, T) tensors of integers
-        tok_emb = self.token_embedding_table(index)
-        pos_emb = self.position_embedding_table(torch.arrange(T, 
-                                                              device=device))
-        x_int = tok_emb + pos_emb
-        x_int = self.blocks(x_int)
-        x_int = self.ln_f(x_int)
-        logits = self.lm_head(x_int)
+        B,T = index.shape
+        tok_emb = self.token_embedding_table(index) # (B, T, C)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=device)) # (T, C)
+        x = tok_emb + pos_emb # (B, T, C)
+        x = self.blocks(x)
+        x = self.ln_f(x)
+        logits = self.lm_head(x)
         if targets is None:
             loss = None
         else:
@@ -86,6 +96,34 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+class Head(nn.Module):
+    """ one head of self-attention - WTF? """
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embed, head_size, bias=False)
+        self.query = nn.Linear(n_embed, head_size, bias=False)
+        self.value = nn.Linear(n_embed, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(BLOCK_SIZE, BLOCK_SIZE)))
+
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        # input of size (batch, time-step, channels)
+        # output of size (batch, time-step, head size)
+        B, T, C = x.shape
+        k = self.key(x)
+        q = self.query(x)
+        # Compute attention on scores ("affinities")
+        wei = q @ k.transpose(-2, -1) * k.shape[-1]**0.5 #  (B,T,hs) @ (B, hs, T) -> (B, T, T)
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
+        wei = F.softmax(wei, dim=-1)  # (B, T, T)
+        wei = self.dropout(wei)
+        # perform the weighted aggretation of the values
+        v = self.value(x) # (B, T, hs)
+        out = wei @ v # (B, T, T) @ (B, T, hs) -> (B, T, hs)
+        return out
+
+
 class MultiHeadAttention(nn.Module):
     """ Multiple heads of self-attention in parallel """
     def __init__(self, num_heads, head_size):
@@ -97,13 +135,16 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.dropout(self.proj(out))
+        return out
 
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
     
     def __init__(self, n_embed, n_head):
         """ n_embed: embedding dimension, n_head: number of heads we'd like """
+        super().__init__()
         head_size = n_embed // n_head
+        
         self.sa = MultiHeadAttention(n_head, head_size)
         self.ffwd = FeedForward(n_embed)
         self.ln1 = nn.LayerNorm(n_embed)
@@ -195,7 +236,6 @@ def train_step(model: nn.Module,
 
 def main():
     """ Main entry point for this script """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     #text_file_name = input("Text File? ")
     text_file_name = "./data/woz.txt"
     text, vocab_size, encode, decode = tokenize_txt(text_file_name)
