@@ -15,11 +15,11 @@ from torch.nn import functional as F
 BLOCK_SIZE = 64
 BATCH_SIZE = 128
 N_LAYER = 4
-MAX_ITERS = 1000
+MAX_ITERS = 50
 EMBEDDING_DIM = 100
 SPLIT_SIZE = 0.8
-LEARNING_RATE = 3e-3
-EVAL_ITER = 100
+LEARNING_RATE = 3e-4
+EVAL_ITER = 1
 n_embed = 384
 n_head = 4
 dropout = 0.2
@@ -52,7 +52,7 @@ class GPTLanguageModel(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean = 0.0, std = 0.02)
 
-    def forward(self, index: int, targets: TensorType = None):
+    def forward(self, index: TensorType, targets: TensorType = None):
         """ mandatory implementation of the forward method """
         # idx and targets are both (B, T) tensors of integers
         B,T = index.shape
@@ -74,23 +74,27 @@ class GPTLanguageModel(nn.Module):
 
     def generate(self, index: TensorType, max_new_tokens: int) -> int:
         """ Predicts max_new_tokens starting at the token at index """
+        # index is (B, T) array of indices in the current context
         for _ in range(max_new_tokens):
-            logits, _ = self.forward(index)
-            logits = logits[:, -1, :]
+            logits, loss = self.forward(index)
+            logits = logits[:, -1, :] # becomes (B, C)
             probs = F.softmax(logits, dim=-1)
             index_next = torch.multinomial(probs, num_samples=1)
-            index = torch.cat((index, index_next), dim=-1)
+            index = torch.cat((index, index_next), dim=1)
+            _,T = index.shape
+            if T > BLOCK_SIZE:
+                index = index[0,-BLOCK_SIZE:].unsqueeze(dim=-1).T
         return index
 
 class FeedForward(nn.Module):
     """ a simple linear layer followed by a non-linearity """
     
-    def __init__(self, n_embed):
+    def __init__(self, n_embd):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(n_embed, 4 * n_embed),
+            nn.Linear(n_embd, 4 * n_embd),
             nn.ReLU(),
-            nn.Linear(4 * n_embed, n_embed),
+            nn.Linear(4 * n_embd, n_embd),
             nn.Dropout(dropout),
         )
     def forward(self, x):
@@ -144,7 +148,6 @@ class Block(nn.Module):
         """ n_embed: embedding dimension, n_head: number of heads we'd like """
         super().__init__()
         head_size = n_embed // n_head
-        
         self.sa = MultiHeadAttention(n_head, head_size)
         self.ffwd = FeedForward(n_embed)
         self.ln1 = nn.LayerNorm(n_embed)
