@@ -12,16 +12,16 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-BLOCK_SIZE = 64
-BATCH_SIZE = 128
-N_LAYER = 4
-MAX_ITERS = 50
+BLOCK_SIZE = 128
+BATCH_SIZE = 32
+MAX_ITERS = 100
 EMBEDDING_DIM = 100
 SPLIT_SIZE = 0.8
-LEARNING_RATE = 3e-4
-EVAL_ITER = 1
+LEARNING_RATE = 0.0005
+EVAL_ITER = 5
 n_embed = 384
 n_head = 4
+N_LAYER = 4
 dropout = 0.2
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -81,9 +81,10 @@ class GPTLanguageModel(nn.Module):
             probs = F.softmax(logits, dim=-1)
             index_next = torch.multinomial(probs, num_samples=1)
             index = torch.cat((index, index_next), dim=1)
-            _,T = index.shape
-            if T > BLOCK_SIZE:
-                index = index[0,-BLOCK_SIZE:].unsqueeze(dim=-1).T
+            index = index[:,-BLOCK_SIZE:]            
+            #_,T = index.shape
+            #if T > BLOCK_SIZE:
+            #    index = index[0,-BLOCK_SIZE:].unsqueeze(dim=-1).T
         return index
 
 class FeedForward(nn.Module):
