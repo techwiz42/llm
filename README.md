@@ -7,6 +7,6 @@ https://www.youtube.com/watch?v=UU1WVnMk4E8
 
 The github repo for this tutorial is 
 ~~~
-https://github.com/Infatoshi/fcc-intro-to-llms/blob/main/chatbot.py
+https://github.com/Infatoshi/fcc-intro-to-llms
 ~~~
 

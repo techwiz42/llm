@@ -1,13 +1,10 @@
-""" 
-    Baby's First Large Language Model 
-    From: https://www.youtube.com/watch?v=UU1WVnMk4E8
-    Note that tutorial became increasingly incoherent toward the end
-         I reproduce the code here in the hope of understanding it by 
-         trying to make it work.
+"""
+    Classes that define the GPT model
 """
 import sys
 from typing import Tuple, Callable
 from torchtyping import TensorType
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -80,7 +77,7 @@ class GPTLanguageModel(nn.Module):
             probs = F.softmax(logits, dim=-1)
             index_next = torch.multinomial(probs, num_samples=1)
             index = torch.cat((index, index_next), dim=1)
-            index = index[:,-BLOCK_SIZE:]            
+            index = index[:,-BLOCK_SIZE:]
             #_,T = index.shape
             #if T > BLOCK_SIZE:
             #    index = index[0,-BLOCK_SIZE:].unsqueeze(dim=-1).T
@@ -88,7 +85,7 @@ class GPTLanguageModel(nn.Module):
 
 class FeedForward(nn.Module):
     """ a simple linear layer followed by a non-linearity """
-    
+
     def __init__(self, n_embd):
         super().__init__()
         self.net = nn.Sequential(
@@ -127,7 +124,6 @@ class Head(nn.Module):
         out = wei @ v # (B, T, T) @ (B, T, hs) -> (B, T, hs)
         return out
 
-
 class MultiHeadAttention(nn.Module):
     """ Multiple heads of self-attention in parallel """
     def __init__(self, num_heads, head_size):
@@ -143,7 +139,7 @@ class MultiHeadAttention(nn.Module):
 
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
-    
+
     def __init__(self, n_embed, n_head):
         """ n_embed: embedding dimension, n_head: number of heads we'd like """
         super().__init__()
@@ -160,104 +156,3 @@ class Block(nn.Module):
         x = self.ln2(x + y)
         return x
 
-def tokenize_txt(text_file_name: str) -> Tuple[str, int, Callable, Callable]:
-    # pylint: disable-msg=unnecessary-comprehension
-    # pylint: disable-msg=unnecessary-lambda-assignment
-    """ 
-        Opens file, reads text and converts it to a list of 
-        tokens. Creates 'encode' and 'decode' lambda functions.
-
-        Parameters:
-            text_file_name: the name of the text file. If the text file
-                            lives in a subdirectory, use the full path
-                            ex: './data/woz.txt'
-        Returns:
-            txt: the text
-            encode: lambda function that takes a string and returns a list 
-                    of integers where each integer corresponds to a tokenized
-                    value of a letter in the string
-            decode: lambda fuunction that takes a list of integers and returns
-                    the corresponding string.
-    """
-    try:
-        with open(text_file_name, "r", encoding="utf-8") as f:
-            txt = f.read()
-            chars = sorted(set(txt))
-            string_to_int = {ch:i for i,ch in enumerate(chars)}
-            int_to_string = {i:ch for i,ch in enumerate(chars)}
-            encode = lambda s: [string_to_int[c] for c in s]
-            decode = lambda l: ''.join([int_to_string[i] for i in l])
-            return txt, len(chars), encode, decode
-    except FileNotFoundError:
-        print("File not found. Bye")
-        sys.exit(0)
-
-def get_batch(data: TensorType) -> Tuple[TensorType, TensorType]:
-    """ Chops data into batches blocks of a given size """
-    ix = torch.randint(len(data) - BLOCK_SIZE, (BATCH_SIZE,))
-    x = torch.stack([data[i:i+BLOCK_SIZE] for i in ix])
-    y = torch.stack([data[i+1:i+BLOCK_SIZE+1] for i in ix])
-    return x, y
-
-def train_test_split(data: TensorType,
-                     split: float,
-                     device: str) -> Tuple[TensorType, TensorType]:
-    """ 
-        Splits data into training and testing portions
-    """
-    split_len = int(split * len(data))
-    train_data = data[:split_len].to(device)
-    test_data = data[split_len:].to(device)
-    return train_data, test_data
-
-@torch.no_grad()
-def test_step(model: nn.Module,
-              train_data: TensorType,
-              eval_data: TensorType) -> dict:
-    """ estimate the loss """
-    out = {}
-    model.eval()
-    for split in ['train', 'eval']:
-        losses = torch.zeros(EVAL_ITER)
-        for k in range(EVAL_ITER):
-            x, y = get_batch(train_data if split == 'train' else eval_data)
-            _, loss = model(x, y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
-    model.train()
-    return out
-
-def train_step(model: nn.Module,
-               optimizer,
-               data: TensorType) -> None:
-    """ train the model """
-    xb, yb = get_batch(data)
-    _, loss = model.forward(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
-
-def main():
-    """ Main entry point for this script """
-    #text_file_name = input("Text File? ")
-    text_file_name = "./data/woz.txt"
-    text, vocab_size, encode, decode = tokenize_txt(text_file_name)
-    data = torch.tensor(encode(text), dtype=torch.long)
-    train_data, test_data = train_test_split(data, SPLIT_SIZE, device)
-    model = GPTLanguageModel(vocab_size).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr = LEARNING_RATE)
-
-    #### Training loop
-    for epoch in range(MAX_ITERS):
-        train_step(model, optimizer, train_data)
-        losses = test_step(model, train_data, test_data)
-        if epoch % EVAL_ITER == 0:
-            losses = test_step(model, train_data, test_data)
-            print(f"{epoch=} --- loss: {losses}")
-    context = torch.zeros((1,1), dtype=torch.long, device=device)
-    generated_chars = decode(model.generate(context,
-                            max_new_tokens=500)[0].tolist())
-    print(generated_chars)
-
-if __name__ == "__main__":
-    main()
