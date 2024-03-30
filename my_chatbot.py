@@ -2,18 +2,9 @@ import sys
 import torch
 from torch import nn
 import gpt_model
+import constants
 
-BLOCK_SIZE = 128
-BATCH_SIZE = 32
-MAX_ITERS = 100
-EMBEDDING_DIM = 100
-SPLIT_SIZE = 0.8
-LEARNING_RATE = 0.0005
-EVAL_ITER = 5
-n_embed = 384
-n_head = 4
-N_LAYER = 4
-dropout = 0.2
+BLOCK_SIZE = constants.BLOCK_SIZE
 
 # pylint: disable-msg=unnecessary-comprehension
 # pylint: disable-msg=unnecessary-lambda-assignment
