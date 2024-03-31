@@ -5,14 +5,18 @@
          I reproduce the code here in the hope of understanding it by 
          trying to make it work.
 """
-import sys
+import mmap
+import random
+import pickle
+import argparse
+
 from typing import Tuple, Callable
 from torchtyping import TensorType
 import torch
 from torch import nn
 from torch.nn import functional as F
-import constants
 from  gpt_model import GPTLanguageModel
+import constants
 
 BLOCK_SIZE = constants.BLOCK_SIZE
 BATCH_SIZE = constants.BATCH_SIZE
@@ -26,10 +30,10 @@ n_head = constants.n_head
 N_LAYER = constants.N_LAYER
 dropout = constants.dropout
 
-device = 'cuda' if torch.cuda.is_available()  else 'cpu'
+device = 'cuda' if False and torch.cuda.is_available() else 'cpu'
 model_path = "models/model-01.pt"
 
-def tokenize_txt(text_file_name: str) -> Tuple[str, int, Callable, Callable]:
+def tokenize_txt(text_file_name: str) -> str:
     # pylint: disable-msg=unnecessary-comprehension
     # pylint: disable-msg=unnecessary-lambda-assignment
     try:
@@ -97,16 +101,13 @@ def main():
     text, vocab_size, encode, decode = tokenize_txt(text_file_name)
     data = torch.tensor(encode(text), dtype=torch.long)
     train_data, test_data = train_test_split(data, SPLIT_SIZE, device)
-
     model = GPTLanguageModel(vocab_size)
     try:
-       print("Loading model")
-       model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path))
     except:
-        print("Model failed to load. Initializing new model")
+        "Failed to load pretrained model. Instantiating new model"
         model = GPTLanguageModel(vocab_size)
     model.to(device)
-
     optimizer = torch.optim.AdamW(model.parameters(), lr = LEARNING_RATE)
 
     #### Training loop
@@ -120,8 +121,8 @@ def main():
     generated_chars = decode(model.generate(context,
                             max_new_tokens=500)[0].tolist())
     print(generated_chars)
-    print("\nSaving model")
     torch.save(model.state_dict(), model_path)
+    print("Model saved.")
 
 if __name__ == "__main__":
     main()

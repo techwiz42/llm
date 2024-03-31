@@ -1,4 +1,6 @@
 import sys
+import traceback
+import pickle
 import torch
 from torch import nn
 import gpt_model
@@ -35,10 +37,11 @@ def main():
     vocab_size = get_vocab_size()
     model = gpt_model.GPTLanguageModel(vocab_size) # FIXME: Is this necessary?
     try:
-        with open('model-01.pkl', 'rb') as mf:
+        with open('models/model-01.pkl', 'rb') as mf:
             model = pickle.load(mf)
             model.to(device)
     except:
+        traceback.print_exc()
         print("Could not load pretrained model")
         sys.exit(0)
 

@@ -4,24 +4,24 @@
 import sys
 from typing import Tuple, Callable
 from torchtyping import TensorType
-
+import constants
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-BLOCK_SIZE = 128
-BATCH_SIZE = 32
-MAX_ITERS = 100
-EMBEDDING_DIM = 100
-SPLIT_SIZE = 0.8
-LEARNING_RATE = 0.0005
-EVAL_ITER = 5
-n_embed = 384
-n_head = 4
-N_LAYER = 4
-dropout = 0.2
+BLOCK_SIZE = constants.BLOCK_SIZE
+BATCH_SIZE = constants.BATCH_SIZE
+MAX_ITERS = constants.MAX_ITERS
+EMBEDDING_DIM = constants.EMBEDDING_DIM
+SPLIT_SIZE = constants.SPLIT_SIZE
+LEARNING_RATE = constants.LEARNING_RATE
+EVAL_ITER = constants.EVAL_ITER
+n_embed = constants.n_embed
+n_head = constants.n_head
+N_LAYER = constants.N_LAYER
+dropout = constants.dropout
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if  torch.cuda.is_available()  else 'cpu'
 
 class GPTLanguageModel(nn.Module):
     """ 
@@ -78,9 +78,6 @@ class GPTLanguageModel(nn.Module):
             index_next = torch.multinomial(probs, num_samples=1)
             index = torch.cat((index, index_next), dim=1)
             index = index[:,-BLOCK_SIZE:]
-            #_,T = index.shape
-            #if T > BLOCK_SIZE:
-            #    index = index[0,-BLOCK_SIZE:].unsqueeze(dim=-1).T
         return index
 
 class FeedForward(nn.Module):
