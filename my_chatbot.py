@@ -7,6 +7,8 @@ import gpt_model
 import constants
 
 BLOCK_SIZE = constants.BLOCK_SIZE
+data_path = constants.data_path
+model_path = constants.model_path
 
 # pylint: disable-msg=unnecessary-comprehension
 # pylint: disable-msg=unnecessary-lambda-assignment
@@ -15,7 +17,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def get_vocab_size() -> int:
     try:
-        with open("data/vocab.txt", "r", encoding="utf-8") as f:
+        #FIXME - save vocab file separately, don't have to read it each time.
+        with open(data_path, "r", encoding="utf-8") as f:
             txt = f.read()
             chars = sorted(list(set(txt)))
             return len(chars)
@@ -37,16 +40,19 @@ def main():
     vocab_size = get_vocab_size()
     model = gpt_model.GPTLanguageModel(vocab_size) # FIXME: Is this necessary?
     try:
-        with open('models/model-01.pkl', 'rb') as mf:
-            model = pickle.load(mf)
-            model.to(device)
+        print("loading model")
+        model.load_state_dict(torch.load(model_path))
+        model.to(device)
+        print("success!")
     except:
-        traceback.print_exc()
         print("Could not load pretrained model")
         sys.exit(0)
 
     while True:
         prompt = input("Ask me anything: ")
+        if prompt == "":
+            print("bye!")
+            sys.exit(0)
         context = torch.tensor(encode(prompt),
                                dtype = torch.long,
                                device = device).unsqueeze(0)

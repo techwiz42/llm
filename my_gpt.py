@@ -25,9 +25,10 @@ n_embed = constants.n_embed
 n_head = constants.n_head
 N_LAYER = constants.N_LAYER
 dropout = constants.dropout
+data_path = constants.data_path
+model_path = constants.model_path
 
 device = 'cuda' if torch.cuda.is_available()  else 'cpu'
-model_path = "models/model-01.pt"
 
 def tokenize_txt(text_file_name: str) -> Tuple[str, int, Callable, Callable]:
     # pylint: disable-msg=unnecessary-comprehension
@@ -93,7 +94,7 @@ def train_step(model: nn.Module,
 def main():
     """ Main entry point for this script """
     #text_file_name = input("Text File? ")
-    text_file_name = "./data/woz.txt"
+    text_file_name = data_path
     text, vocab_size, encode, decode = tokenize_txt(text_file_name)
     data = torch.tensor(encode(text), dtype=torch.long)
     train_data, test_data = train_test_split(data, SPLIT_SIZE, device)
@@ -102,6 +103,7 @@ def main():
     try:
        print("Loading model")
        model.load_state_dict(torch.load(model_path))
+       print("Success!")
     except:
         print("Model failed to load. Initializing new model")
         model = GPTLanguageModel(vocab_size)

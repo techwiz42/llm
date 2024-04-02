@@ -5,6 +5,7 @@
          I reproduce the code here in the hope of understanding it by 
          trying to make it work.
 """
+import sys
 import mmap
 import random
 import pickle
@@ -29,9 +30,10 @@ n_embed = constants.n_embed
 n_head = constants.n_head
 N_LAYER = constants.N_LAYER
 dropout = constants.dropout
+data_path = constants.data_path
+model_path = constants.model_path
 
 device = 'cuda' if False and torch.cuda.is_available() else 'cpu'
-model_path = "models/model-01.pt"
 
 def tokenize_txt(text_file_name: str) -> str:
     # pylint: disable-msg=unnecessary-comprehension
@@ -46,7 +48,7 @@ def tokenize_txt(text_file_name: str) -> str:
             decode = lambda l: ''.join([int_to_string[i] for i in l])
             return txt, len(chars), encode, decode
     except FileNotFoundError:
-        print("File not found. Bye")
+        print(f"{text_file_name=} not found. Bye")
         sys.exit(0)
 
 def get_batch(data: TensorType) -> Tuple[TensorType, TensorType]:
@@ -97,13 +99,15 @@ def train_step(model: nn.Module,
 def main():
     """ Main entry point for this script """
     #text_file_name = input("Text File? ")
-    text_file_name = "./data/woz.txt"
+    text_file_name = data_path
     text, vocab_size, encode, decode = tokenize_txt(text_file_name)
     data = torch.tensor(encode(text), dtype=torch.long)
     train_data, test_data = train_test_split(data, SPLIT_SIZE, device)
     model = GPTLanguageModel(vocab_size)
     try:
+        print("Loading model")
         model.load_state_dict(torch.load(model_path))
+        print("success!")
     except:
         "Failed to load pretrained model. Instantiating new model"
         model = GPTLanguageModel(vocab_size)
