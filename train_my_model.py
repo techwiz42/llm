@@ -33,7 +33,7 @@ dropout = constants.dropout
 data_path = constants.data_path
 model_path = constants.model_path
 
-device = 'cuda' if False and torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def tokenize_txt(text_file_name: str) -> str:
     # pylint: disable-msg=unnecessary-comprehension
