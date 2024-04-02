@@ -16,7 +16,7 @@ from torchtyping import TensorType
 import torch
 from torch import nn
 from torch.nn import functional as F
-from  gpt_model import GPTLanguageModel
+from gpt_model import GPTLanguageModel
 import constants
 
 BLOCK_SIZE = constants.BLOCK_SIZE
