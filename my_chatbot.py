@@ -15,30 +15,24 @@ model_path = constants.model_path
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-def get_vocab_size() -> int:
+def get_vocab_size():
     try:
-        #FIXME - save vocab file separately, don't have to read it each time.
         with open(data_path, "r", encoding="utf-8") as f:
             txt = f.read()
             chars = sorted(list(set(txt)))
-            return len(chars)
+            string_to_int = {ch:i for i,ch in enumerate(chars)}
+            int_to_string = {i:ch for i,ch in enumerate(chars)}
+            encode = lambda s: [string_to_int[c] for c in s]
+            decode = lambda l: ''.join([int_to_string[i] for i in l])
+            return txt, len(chars), encode, decode
     except FileNotFoundError:
         print("File not found. Bye")
         sys.exit(0)
 
-def encode(plain_txt: str) -> str:
-    string_to_int = {ch:i for i,ch in enumerate(chars)}
-    return lambda s: [string_to_int[c] for c in plain_txt]
-
-def decode(encoded_txt: str) -> str:
-    int_to_string = {i:ch for i,ch in enumerate(chars)}
-    return lambda l: ''.join([int_to_string[i] for i in encoded_txt])
-
-
 def main():
     """ Main entry point for this script """
-    vocab_size = get_vocab_size()
-    model = gpt_model.GPTLanguageModel(vocab_size) # FIXME: Is this necessary?
+    txt, vocab_size, encode, decode  = get_vocab_size()
+    model = gpt_model.GPTLanguageModel(vocab_size) 
     try:
         print("loading model")
         model.load_state_dict(torch.load(model_path))
